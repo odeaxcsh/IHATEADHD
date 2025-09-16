@@ -8,11 +8,11 @@
  * section-aware code.
  */
 
-import type {Heading, BlockContent, PhrasingContent} from "mdast"
+import type {Heading, BlockContent, Paragraph, PhrasingContent} from "mdast"
 
 export interface HeadingSection extends Heading {
-  /** Phrasing children copied from the original heading line */
-  title?: PhrasingContent[]
+  /** Paragraph built from the original heading line */
+  title?: Paragraph
   /** Section body blocks (including nested HeadingSection) */
   children: Array<BlockContent | HeadingSection>
   /** Internal marker to avoid re-sectionizing */
@@ -22,8 +22,8 @@ export interface HeadingSection extends Heading {
 // Optional augmentation: expose `title` on mdast Heading for TS convenience.
 declare module "mdast" {
   interface Heading {
-    /** Phrasing from the heading line, if sectionized by this plugin */
-    title?: PhrasingContent[]
+    /** Paragraph from the heading line, if sectionized by this plugin */
+    title?: Paragraph
     /** (At runtime after sectionizing) children are section body blocks */
     // Note: we don't alter the declared type of children here.
   }

@@ -21,9 +21,8 @@ const handleCallout: Handle = (node, _parent, context) => {
   const marker = `[!${n.calloutType}]${n.expanded ?? ''}`
 
   let titleInline = ''
-  if (n.title?.length) {
-    // Wrap phrasing in a synthetic paragraph so containerPhrasing can serialize.
-    titleInline = context.containerPhrasing({type: 'paragraph', children: n.title}, {before: '', after: ''}).trim()
+  if (n.title) {
+    titleInline = context.containerPhrasing(n.title, {before: '', after: ''}).trim()
   }
 
   const firstLine = '> ' + marker + (titleInline ? ' ' + titleInline : '') + '\n'

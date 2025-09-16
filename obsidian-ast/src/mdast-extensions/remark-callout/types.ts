@@ -6,14 +6,14 @@
  * - children: the callout's content blocks
  */
 import type {Parent} from 'unist'
-import type {PhrasingContent, BlockContent} from 'mdast'
+import type {Paragraph, BlockContent} from 'mdast'
 
 export interface Callout extends Parent {
   type: 'callout'
   calloutType: string
   expanded?: '+' | '-'
-  /** Title phrasing on the first line (no paragraph wrapper) */
-  title?: PhrasingContent[]
+  /** Title paragraph extracted from the first line (optional) */
+  title?: Paragraph
   children: BlockContent[]
 }
 

@@ -10,11 +10,23 @@ const pos = (offset: number) => ({
 });
 
 describe("expandFieldChain", () => {
-  it("expands title arrays into paragraph nodes", () => {
+  it("returns paragraph titles directly", () => {
     const heading: any = {
       type: "heading",
-      title: [{ type: "text", value: "Hello", ...pos(0) }],
+      title: { type: "paragraph", children: [{ type: "text", value: "Hello", ...pos(0) }], ...pos(0) },
       ...pos(0)
+    };
+
+    const result = expandFieldChain([heading], ["title"]);
+    assert.equal(result.length, 1);
+    assert.strictEqual(result[0], heading.title);
+  });
+
+  it("wraps legacy title arrays into a paragraph", () => {
+    const heading: any = {
+      type: "heading",
+      title: [{ type: "text", value: "Legacy", ...pos(2) }],
+      ...pos(2)
     };
 
     const result = expandFieldChain([heading], ["title"]);

@@ -1,4 +1,7 @@
 import type { } from "./lang/ast";
+import { unionAllPos } from "../mdast-extensions/helper";
+
+const isNode = (val: any): val is { type: string } => !!val && typeof val === "object" && typeof val.type === "string";
 
 type ExpandCtx = { parentMap?: WeakMap<any, any | null> };
 
@@ -20,21 +23,27 @@ export function expandFieldOnce(nodes: any[], field: string, ctx?: ExpandCtx): a
     const val = (n as any)[field];
 
     if (field === "title") {
-      if (Array.isArray(val)) { out.push({ type: "paragraph", children: val, position: n.position }); continue; }
-      if (val && typeof val === "object") { out.push(val); continue; }
+      if (isNode(val)) { out.push(val); continue; }
+      if (Array.isArray(val)) {
+        const nodes = val.filter(isNode);
+        if (!nodes.length) continue;
+        const position = unionAllPos(...nodes.map(node => node?.position));
+        out.push({ type: "paragraph", children: nodes, position });
+        continue;
+      }
       continue;
     }
 
     if (field === "children") {
-      if (Array.isArray(n.children)) { out.push(...n.children); continue; }
+      if (Array.isArray(n.children)) { out.push(...n.children.filter(isNode)); continue; }
       continue;
     }
 
     if (Array.isArray(val)) {
-      for (const x of val) if (x && typeof x === "object" && "type" in x) out.push(x);
+      for (const x of val) if (isNode(x)) out.push(x);
       continue;
     }
-    if (val && typeof val === "object" && "type" in val) { out.push(val); continue; }
+    if (isNode(val)) { out.push(val); continue; }
 
     if (val != null) throw new Error(`Cannot expand non-node field "${field}" on ${n.type}`);
   }
