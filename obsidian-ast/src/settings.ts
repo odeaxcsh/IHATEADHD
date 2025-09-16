@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type AstPlugin from "./main";
+import { LOG_LEVEL_LABELS, LOG_LEVELS, type LogLevel } from "./logger";
 
 export interface AstSettings {
   enableMdTag: boolean;
@@ -7,6 +8,7 @@ export interface AstSettings {
   enableCallout: boolean;
   enableNestedHeadings: boolean;
   enableDirectives: boolean;
+  logLevel: LogLevel;
 }
 
 export const DEFAULT_SETTINGS: AstSettings = {
@@ -15,6 +17,7 @@ export const DEFAULT_SETTINGS: AstSettings = {
   enableCallout: true,
   enableNestedHeadings: true,
   enableDirectives: true,
+  logLevel: "info",
 };
 
 export class AstSettingsTab extends PluginSettingTab {
@@ -29,6 +32,21 @@ export class AstSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "AST Tools – Settings" });
+
+    new Setting(containerEl)
+      .setName("Log level")
+      .setDesc("Controls how much information is printed to the developer console.")
+      .addDropdown(drop => {
+        for (const level of LOG_LEVELS) {
+          drop.addOption(level, LOG_LEVEL_LABELS[level]);
+        }
+        drop
+          .setValue(this.plugin.settings.logLevel)
+          .onChange(async value => {
+            this.plugin.settings.logLevel = value as LogLevel;
+            await this.plugin.saveSettings();
+          });
+      });
 
     new Setting(containerEl)
       .setName("MdTag (#tag)")

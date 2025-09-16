@@ -1,9 +1,8 @@
 import type { MarkdownPostProcessorContext } from "obsidian";
 import type { MdNode, MountPolicy } from "./types.js";
+import { createLogger } from "./logger.js";
 
-const VERBOSE = true;
-const tag = (m: string) => `[ACR:mount] ${m}`;
-const dbg = (...a: any[]) => VERBOSE && console.debug(...a);
+const log = createLogger("ACR:mount");
 
 export function pickAnchorByLinesInScope(
   scopeEl: HTMLElement,
@@ -12,7 +11,7 @@ export function pickAnchorByLinesInScope(
 ): HTMLElement | null {
   const sLine = (node?.position?.start?.line ?? 1) - 1;
   const eLine = (node?.position?.end?.line ?? sLine + 1) - 1;
-  dbg(tag(`pickAnchor scope=${scopeEl.tagName}.${scopeEl.className} node=${sLine}-${eLine}`));
+  log.debug("pickAnchor", { scope: `${scopeEl.tagName}.${scopeEl.className}`, range: `${sLine}-${eLine}` });
 
   const candidates: HTMLElement[] = [scopeEl];
   const selector = [
@@ -32,12 +31,17 @@ export function pickAnchorByLinesInScope(
     considered++;
     const inside = !(sLine < sec.lineStart || eLine > sec.lineEnd);
     const span = sec.lineEnd - sec.lineStart;
-    dbg(tag(`cand ${el.tagName}.${el.className} sec=L${sec.lineStart}–L${sec.lineEnd} inside=${inside} span=${span}`));
+    log.debug("anchor candidate", {
+      element: `${el.tagName}.${el.className}`,
+      section: `L${sec.lineStart}–L${sec.lineEnd}`,
+      inside,
+      span,
+    });
     if (!inside) continue;
     if (!best || span < best.span) best = { el, span };
   }
 
-  dbg(tag(`candidates considered=${considered} chosen=${best?.el?.tagName || "none"}`), best?.el || null);
+  log.debug("anchor selection result", { considered, chosen: best?.el?.tagName ?? "none" });
   return best?.el ?? null;
 }
 
