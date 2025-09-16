@@ -4,13 +4,8 @@ import { InMemoryRegistry } from "./registry.js";
 import { SvelteRenderer } from "./renderers/svelte.js";
 import { pickAnchorByLinesInScope, placeMount, nodeId } from "./mount.js";
 import Comment from "./components/comment.svelte";
-
-const VERBOSE = true;
-const tag = (m: string) => `[ACR] ${m}`;
-const dbg = (...a: any[]) => VERBOSE && console.debug(...a);
-const info = (...a: any[]) => VERBOSE && console.info(...a);
-const warn = (...a: any[]) => console.warn(...a);
-const err  = (...a: any[]) => console.error(...a);
+import { DEFAULT_SETTINGS, RendererSettings, RendererSettingsTab } from "./settings.js";
+import { createLogger, normalizeLogLevel, setLoggerLevelGetter } from "./logger.js";
 
 function posLines(n?: MdNode) {
   const s = n?.position?.start?.line, e = n?.position?.end?.line;
@@ -32,51 +27,56 @@ function cssEscape(s: string): string {
 }
 
 export default class ASTComponentRenderer extends Plugin {
+  public settings: RendererSettings = { ...DEFAULT_SETTINGS };
+  private log = createLogger("ACR", () => this.settings.logLevel);
   private registry = new InMemoryRegistry();
 
   async onload() {
-    info(tag("onload"));
+    this.log.info("onload start");
+    await this.loadSettings();
+    this.log.debug("settings loaded", { settings: this.settings });
+
     const ast = this.app.plugins.getPlugin("obsidian-ast");
     if (!ast || !ast.api) {
       new Notice("ASTComponentRenderer: obsidian-ast not found/enabled", 6000);
-      warn(tag("obsidian-ast missing: mounting will be skipped"));
+      this.log.warn("obsidian-ast missing: mounting will be skipped");
     }
 
     // Registry
     this.registry.register({ type: "comment", renderer: new SvelteRenderer(Comment, {}, "append-inside-li") });
-    info(tag(`registered types: ${this.registry.listTypes().join(", ") || "(none)"}`));
+    this.log.info("registered types", { types: this.registry.listTypes() });
 
     // Post-processor
     this.registerMarkdownPostProcessor(async (root, ctx) => {
       const filePath = ctx.sourcePath;
       const astApi = this.app.plugins.getPlugin("obsidian-ast")?.api;
-      info(tag(`pp start for file=${filePath}`), root);
+      this.log.debug("post-processor start", { filePath });
 
       if (!astApi) {
-        warn(tag("no ast.api; abort pp"));
+        this.log.warn("post-processor aborted: obsidian-ast API unavailable", { filePath });
         return;
       }
 
       const types = this.registry.listTypes();
-      info(tag(`types to render: ${types.join(", ") || "(none)"}`));
+      this.log.debug("types to render", { types });
       if (!types.length) return;
 
       // One “view” element (reading or preview). We’ll dedupe within it.
       const viewEl = root.closest<HTMLElement>(".markdown-reading-view, .markdown-preview-view") ?? root;
-      info(tag(`view scope section: ${secLineRange(ctx, viewEl)}`));
+      this.log.debug("view scope", { filePath, section: secLineRange(ctx, viewEl) });
 
       // Pull nodes for each type
       const allNodes: MdNode[] = [];
       for (const t of types) {
         try {
           const nodes = await astApi.ast(filePath).select(t).toArray();
-          info(tag(`AST query '${t}' -> ${nodes.length} node(s)`), nodes.map(n => ({ type: n.type, lines: posLines(n) })));
+          this.log.debug("AST query result", { type: t, count: nodes.length, nodes: nodes.map(n => ({ type: n.type, lines: posLines(n) })) });
           allNodes.push(...nodes);
         } catch (e) {
-          warn(tag(`ast query failed for type=${t}`), e);
+          this.log.warn("AST query failed", { type: t, error: e });
         }
       }
-      info(tag(`total renderable nodes: ${allNodes.length}`));
+      this.log.info("total renderable nodes", { count: allNodes.length, filePath });
       if (!allNodes.length) return;
 
       // Mount each node
@@ -85,15 +85,24 @@ export default class ASTComponentRenderer extends Plugin {
         const id = nodeId(node);
         const hasPos = !!(node?.position?.start && node?.position?.end);
 
-        info(tag(`node ${type} id=${id} ${posLines(node)}`), node);
-        if (!hasPos) { warn(tag(`skip: no position for id=${id}`)); continue; }
+        this.log.debug("node ready", { type, id, lines: posLines(node) });
+        if (!hasPos) {
+          this.log.warn("skip node: no position", { id, type });
+          continue;
+        }
 
         // Dedupe within the whole view
         const dup = viewEl.querySelector(`[data-acr-node="${cssEscape(id)}"]`);
-        if (dup) { dbg(tag(`skip: already mounted id=${id}`)); continue; }
+        if (dup) {
+          this.log.debug("skip node: already mounted", { id });
+          continue;
+        }
 
         const renderer = this.registry.get(type);
-        if (!renderer) { dbg(tag(`skip: no renderer for type=${type}`)); continue; }
+        if (!renderer) {
+          this.log.debug("skip node: no renderer", { type });
+          continue;
+        }
 
         const rc: RenderContext = { app: this.app, plugin: this, filePath, ctx };
 
@@ -103,27 +112,54 @@ export default class ASTComponentRenderer extends Plugin {
           pickAnchorByLinesInScope(viewEl, ctx, node);
 
         const sec = (el: HTMLElement | null) => el ? ctx.getSectionInfo(el) : null;
-        info(tag(`anchor for ${id} -> ${anchor?.tagName || "null"} ${sec(anchor) ? `L${sec(anchor)!.lineStart}–L${sec(anchor)!.lineEnd}` : ""}`), anchor);
+        this.log.debug("anchor selection", { id, anchor: anchor?.tagName ?? null, section: sec(anchor) });
 
-        if (!anchor) { warn(tag(`skip: no anchor for id=${id}`)); continue; }
+        if (!anchor) {
+          this.log.warn("skip node: no anchor", { id });
+          continue;
+        }
 
         // Create host & render
         const policy = renderer.mountPolicy ?? "append-inside-block";
-        info(tag(`placeMount policy=${policy} id=${id}`));
+        this.log.debug("place mount", { id, policy });
         const host = placeMount(policy, anchor);
         host.setAttribute("data-acr-node", id);
 
         try {
-          info(tag(`render start id=${id}`));
+          this.log.info("render start", { id, type });
           await renderer.render(node, host, rc);
-          info(tag(`render ok id=${id}`));
+          this.log.info("render complete", { id, type });
         } catch (e) {
-          err(tag(`render error id=${id}`), e);
+          this.log.error("render failed", { id, type }, e);
           host.remove();
         }
       }
 
-      info(tag("pp end"));
+      this.log.debug("post-processor end", { filePath });
     });
+
+    this.addSettingTab(new RendererSettingsTab(this.app, this));
+    this.log.info("onload complete");
+  }
+
+  onunload() {
+    this.log.info("onunload");
+    setLoggerLevelGetter(undefined);
+  }
+
+  async loadSettings() {
+    const data = await this.loadData();
+    const merged = Object.assign({}, DEFAULT_SETTINGS, data || {});
+    merged.logLevel = normalizeLogLevel(merged.logLevel, DEFAULT_SETTINGS.logLevel);
+    this.settings = merged;
+    setLoggerLevelGetter(() => this.settings.logLevel);
+    this.log.debug("loadSettings complete", { settings: this.settings });
+  }
+
+  async saveSettings() {
+    this.settings.logLevel = normalizeLogLevel(this.settings.logLevel, DEFAULT_SETTINGS.logLevel);
+    setLoggerLevelGetter(() => this.settings.logLevel);
+    this.log.info("saveSettings", { settings: this.settings });
+    await this.saveData(this.settings);
   }
 }

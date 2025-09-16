@@ -4,6 +4,9 @@ import { parsePropValue } from "./props-grammar";
 import { buildComponentNode } from "./node-factory";
 import type { PropExpr } from "./types";
 import { copyPos } from "../helper";
+import { createLogger } from "../../logger";
+
+const log = createLogger("obsidian-ast:directive");
 
 /** Convert directive nodes into mdast nodes whose `type` is the directive name.
  *  - props become real fields on the node (and can be inline “component” trees)
@@ -34,7 +37,7 @@ export function remarkDirectiveAdapter() {
             try {
               attrs[k] = parsePropValue(String(v));
             } catch (err) {
-              console.warn(`[obsidian-ast] prop parse failed (${name}.${k}):`, v, err);
+              log.warn("prop parse failed", { directive: name, prop: k, value: v, error: err });
               attrs[k] = { kind: "lit", value: String(v) };
             }
           }
@@ -45,15 +48,11 @@ export function remarkDirectiveAdapter() {
         copyPos(comp, node);
         parent.children.splice(index, 1, comp);
 
-        console.debug("[obsidian-ast] directive -> component:", node, "=>", comp, "at ", comp.position);
+        log.debug("directive transformed", { name, position: comp.position });
 
 
       } catch (err) {
-        console.error(
-          "[obsidian-ast] directive transform failed; leaving node as-is:",
-          err,
-          node
-        );
+        log.error("directive transform failed; leaving node as-is", err, node);
       }
     });
   };
