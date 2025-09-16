@@ -1,8 +1,8 @@
 import { Plugin, MarkdownPostProcessorContext, Notice } from "obsidian";
-import type { MdNode, RenderContext } from "./types";
-import { InMemoryRegistry } from "./registry";
-import { SvelteRenderer } from "./renderers/svelte";
-import { pickAnchorByLinesInScope, placeMount, nodeId } from "./mount";
+import type { MdNode, RenderContext } from "./types.js";
+import { InMemoryRegistry } from "./registry.js";
+import { SvelteRenderer } from "./renderers/svelte.js";
+import { pickAnchorByLinesInScope, placeMount, nodeId } from "./mount.js";
 import Comment from "./components/comment.svelte";
 
 const VERBOSE = true;
@@ -21,10 +21,14 @@ function secLineRange(ctx: MarkdownPostProcessorContext, el: HTMLElement | null)
   const sec = ctx.getSectionInfo(el);
   return sec ? `L${sec.lineStart}–L${sec.lineEnd}` : "(no section)";
 }
+type CssWindow = Window & { CSS?: { escape?: (value: string) => string } };
+
 function cssEscape(s: string): string {
-  // @ts-ignore
-  const C = (window as any).CSS;
-  return (C && typeof C.escape === "function") ? C.escape(s) : s.replace(/["\\#.;?*+~^$[\]()=>|/]/g, "\\$&");
+  const css = (window as CssWindow).CSS;
+  if (css && typeof css.escape === "function") {
+    return css.escape(s);
+  }
+  return s.replace(/["\\#.;?*+~^$[\]()=>|/]/g, "\\$&");
 }
 
 export default class ASTComponentRenderer extends Plugin {

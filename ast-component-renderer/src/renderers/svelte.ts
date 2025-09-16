@@ -1,4 +1,4 @@
-import type { ComponentRenderer, RenderContext, MdNode, MountPolicy } from "../types";
+import type { ComponentRenderer, RenderContext, MdNode, MountPolicy } from "../types.js";
 
 export class SvelteRenderer implements ComponentRenderer {
   constructor(
