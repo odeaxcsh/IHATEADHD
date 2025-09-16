@@ -2,6 +2,18 @@ import { visit } from "../unist-util-visit";
 
 interface Query { source: string }
 
+const toArray = <T>(value: T | T[] | undefined | null): T[] => {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+function childNodes(node: any): any[] {
+  const out: any[] = [];
+  if (Array.isArray(node?.children)) out.push(...node.children);
+  out.push(...toArray(node?.title));
+  return out;
+}
+
 function nodesByType(tree: any, type: string): any[] {
   const matches: any[] = [];
   visit(tree, node => { if (node?.type === type) matches.push(node); });
@@ -13,11 +25,21 @@ function descendants(nodes: any[], depth: number): any[] {
   for (let i = 0; i < depth; i++) {
     const next: any[] = [];
     for (const node of current) {
-      if (Array.isArray(node?.children)) next.push(...node.children);
+      next.push(...childNodes(node));
     }
     current = next;
   }
   return current;
+}
+
+function childrenByType(nodes: any[], type: string): any[] {
+  const matches: any[] = [];
+  for (const node of nodes) {
+    for (const child of childNodes(node)) {
+      if (child?.type === type) matches.push(child);
+    }
+  }
+  return matches;
 }
 
 export function parseQuery(source: string): Query {
@@ -37,14 +59,28 @@ export function run(tree: any, source: string, scopes?: any[]): any[] {
     return descendants(startNodes, depth);
   }
 
-  const [pathPart, filterPart] = trimmed.split("[");
-  const parts = pathPart.split(">>").map(p => p.trim()).filter(Boolean);
+  const [pathPartRaw, filterPart] = trimmed.split("[");
+  const pathPart = (pathPartRaw ?? "").trim();
+  const segments = pathPart
+    ? pathPart.split(/(>>|>)/).map(p => p.trim()).filter(Boolean)
+    : [];
 
   let current = startNodes;
-  for (const part of parts) {
-    const nodes: any[] = [];
-    for (const root of current) nodes.push(...nodesByType(root, part));
-    current = nodes;
+  let op: string | null = null;
+  for (const token of segments) {
+    if (token === ">>" || token === ">") {
+      op = token;
+      continue;
+    }
+    const type = token;
+    if (!op || op === ">>") {
+      const nodes: any[] = [];
+      for (const root of current) nodes.push(...nodesByType(root, type));
+      current = nodes;
+    } else if (op === ">") {
+      current = childrenByType(current, type);
+    }
+    op = null;
   }
 
   if (filterPart) {

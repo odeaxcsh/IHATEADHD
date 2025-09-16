@@ -17,7 +17,7 @@ import {visit} from 'unist-util-visit'
 import type {Paragraph, Blockquote, Root, Text, BlockContent} from 'mdast'
 import type {Callout} from './types.js'
 
-import { copyPos, unionPos } from '../helper';
+import { copyPos, unionAllPos } from '../helper';
 
 const RE = /^\s*\[\!([A-Za-z][A-Za-z0-9_-]*)\]\s*([+-])?\s*/ // [!type] +optional sign
 // ...same imports and RE as before...
@@ -51,21 +51,24 @@ export function transformCallouts() {
         if (!t.value) para.children.shift()
       }
 
-      const title = para.children.length ? para.children : undefined
+      const titleNode = para.children.length
+        ? copyPos({ type: 'paragraph', children: para.children }, para)
+        : undefined
 
       const content = node.children.slice(1) as BlockContent[]
 
-      var callout: Callout = {
+      const callout: Callout = {
         type: 'callout',
         calloutType,
         expanded,
-        title,
+        title: titleNode,
         children: content,
-        position: node.position
+        position: unionAllPos(
+          node.position,
+          titleNode?.position,
+          ...content.map(child => child?.position)
+        )
       }
-
-      const lastChild = content.length ? content[content.length - 1] : undefined;
-      callout.position = unionPos(node.position, lastChild?.position);
 
       parent.children.splice(index, 1, callout)
       return [visit.SKIP, index]

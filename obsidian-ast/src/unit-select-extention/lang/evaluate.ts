@@ -1,11 +1,10 @@
-import { selectAll } from "unist-util-select";
 import type {
   Query, Expr, UnionExpr, IntersectExpr, ChainExpr, PrimaryExpr, Segment,
   CondExpr, CondOr, CondAnd, CondPrimary, CondAtom, CondCompare, CondSubquery, CondIn, Comparator, Op
 } from "./ast";
 import { expandFieldChain } from "../expand";
 import {
-  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos
+  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos, structuralChildren
 } from "../traverse";
 
 type Ctx = { ast: any, parentMap: WeakMap<any, any | null> };
@@ -17,9 +16,9 @@ export function evaluateQuery(astRoot: any, query: Query, scopes?: any[]): any[]
   return orderByPos(uniqueById(out));
 }
 
-function childrenOf(n: any): any[] {
-  return Array.isArray(n?.children) ? n.children : [];
-}
+const selectByType = (scope: any, type: string): any[] => {
+  return runAllWithin(scope).filter(n => n?.type === type);
+};
 
 /* ---------- expr / chain ---------- */
 
@@ -46,7 +45,7 @@ function evalChain(node: ChainExpr, input: any[], ctx: Ctx): any[] {
     let acc: any[] = [];
     switch (step.op) {
       case ">": { // direct children
-        for (const n of current) acc.push(...childrenOf(n));
+        for (const n of current) acc.push(...structuralChildren(n));
         current = uniqueById(evalPrimary(step.next, acc, ctx, "descendants"));
         break;
       }
@@ -136,7 +135,7 @@ function evalSegment(seg: Segment, scopes: any[], ctx: Ctx): any[] {
       let level: any[] = [scope];
       for (let i = 0; i < hop; i++) {
         const next: any[] = [];
-        for (const n of level) if (Array.isArray(n?.children)) next.push(...n.children);
+        for (const n of level) next.push(...structuralChildren(n));
         level = next;
         if (!level.length) break;
       }
@@ -144,8 +143,7 @@ function evalSegment(seg: Segment, scopes: any[], ctx: Ctx): any[] {
     } else if (seg.base === "*" || seg.base === ":root") {
       baseMatches = runAllWithin(scope);
     } else {
-      try { baseMatches = selectAll(seg.base, scope) as any[]; }
-      catch { baseMatches = []; }
+      baseMatches = selectByType(scope, seg.base);
     }
 
     // 2) field expansion (BEFORE filters)

@@ -12,11 +12,16 @@ const pos = (start: number, end: number = start + 1) => ({
 
 describe("enrichFieldsAndTags", () => {
   it("collects inline fields and tags across common containers", () => {
+    const headingTitle = {
+      type: "paragraph",
+      children: [{ type: "inlineField", key: "owner", value: "Ada", ...pos(10) }],
+      ...pos(9, 12)
+    } as any;
     const heading = {
       type: "heading",
       depth: 1,
       children: [{ type: "text", value: "Heading", ...pos(0) }],
-      title: [{ type: "inlineField", key: "owner", value: "Ada", ...pos(10) }],
+      title: headingTitle,
       ...pos(0, 5)
     } as any;
 
