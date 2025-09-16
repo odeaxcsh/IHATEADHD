@@ -5,7 +5,7 @@ import type {
 } from "./ast";
 import { expandFieldChain } from "../expand";
 import {
-  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos
+  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos, childNodesOf
 } from "../traverse";
 
 type Ctx = { ast: any, parentMap: WeakMap<any, any | null> };
@@ -18,7 +18,7 @@ export function evaluateQuery(astRoot: any, query: Query, scopes?: any[]): any[]
 }
 
 function childrenOf(n: any): any[] {
-  return Array.isArray(n?.children) ? n.children : [];
+  return childNodesOf(n);
 }
 
 /* ---------- expr / chain ---------- */
@@ -262,8 +262,7 @@ function pickComparable(n: any, key: string): any {
   if (key === "title") {
     const t = (n as any).title;
     if (!t) return "";
-    if (Array.isArray(t)) return "[phrasing]";
-    return (t as any).value ?? "";
+    return toPlainText(t);
   }
   if (key === "text") return typeof n?.value === "string" ? n.value : "";
   if (key.startsWith("field.")) return n.fields?.[key.slice(6).trim()];
@@ -274,4 +273,11 @@ function literalToJs(v: StringLit | NumberLit | IdentLit): string | number {
   if (v.kind === "str") return v.value;
   if (v.kind === "num") return v.value;
   return v.value;
+}
+
+function toPlainText(node: any): string {
+  if (!node) return "";
+  if (typeof node.value === "string") return node.value;
+  if (Array.isArray(node.children)) return node.children.map(toPlainText).join("");
+  return "";
 }

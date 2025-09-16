@@ -4,7 +4,7 @@ export type MdPoint = { line?: number; column?: number; offset?: number };
 export type MdPosition = { start?: MdPoint; end?: MdPoint };
 export interface MdNode { type: string; position?: MdPosition; [k: string]: any; }
 
-export type MountPolicy = "append-inside-block" | "append-inside-li" | "before-anchor" | "after-anchor";
+export type MountPolicy = "append-inside-block" | "append-inside-li" | "after-heading";
 
 export interface RenderContext {
   app: App;

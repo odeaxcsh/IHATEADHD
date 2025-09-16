@@ -1,9 +1,7 @@
-import { visit } from "unist-util-visit";
-
 /** Collect every node inside scope (including scope) */
 export function runAllWithin(scope: any): any[] {
   const nodes: any[] = [];
-  visit(scope, (n: any) => { nodes.push(n); });
+  traverse(scope, null, (node) => { nodes.push(node); });
   return nodes;
 }
 
@@ -26,9 +24,9 @@ export function uniqueById(arr: any[]): any[] {
 
 /** Weak parent map (root → null, others → parent) */
 export function buildParentMap(root: any): WeakMap<any, any | null> {
-  const parents = new WeakMap<any, any | null>(); parents.set(root, null);
-  visit(root, (n: any, _i: number | null, p: any | null) => {
-    if (n && !parents.has(n)) parents.set(n, p ?? null);
+  const parents = new WeakMap<any, any | null>();
+  traverse(root, null, (node, parent) => {
+    if (node && !parents.has(node)) parents.set(node, parent ?? null);
   });
   return parents;
 }
@@ -46,4 +44,47 @@ export function minimizeRoots(nodes: any[], parents: WeakMap<any, any | null>): 
     keep.push(n);
   }
   return keep;
+}
+
+export function childNodesOf(node: any): any[] {
+  if (!node || typeof node !== "object") return [];
+
+  const out: any[] = [];
+  const seen = new Set<any>();
+
+  const pushNode = (value: any) => {
+    if (!value || typeof value !== "object") return;
+    if (seen.has(value)) return;
+    if (typeof (value as any).type === "string") {
+      seen.add(value);
+      out.push(value);
+    }
+  };
+
+  if (Array.isArray((node as any).children)) {
+    for (const child of (node as any).children) pushNode(child);
+  }
+
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "children" || key === "position" || key === "data" || key === "value" || key === "fields" || key === "tags" || key === "parent") continue;
+    if (Array.isArray(value)) {
+      for (const item of value) pushNode(item);
+    } else {
+      pushNode(value);
+    }
+  }
+
+  return out;
+}
+
+type VisitFn = (node: any, parent: any | null) => void;
+
+function traverse(node: any, parent: any | null, fn: VisitFn, seen: WeakSet<any> = new WeakSet()): void {
+  if (!node || typeof node !== "object") return;
+  if (seen.has(node)) return;
+  seen.add(node);
+  fn(node, parent);
+  for (const child of childNodesOf(node)) {
+    traverse(child, node, fn, seen);
+  }
 }

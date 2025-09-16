@@ -5,29 +5,25 @@
  *   <serialized body...>
  */
 
-import type {ToMarkdownExtension, Handle} from "mdast-util-to-markdown"
-import type {Heading, PhrasingContent, Content} from "mdast"
+import type { ToMarkdownExtension, Handle } from "mdast-util-to-markdown"
+import type { Heading, Paragraph, Content, PhrasingContent } from "mdast"
 
 const handleHeading: Handle = (node, _parent, context) => {
-  const h = node as Heading & { title?: PhrasingContent[], children?: Content[] }
+  const h = node as Heading & { title?: Paragraph, children?: Content[] }
   const depth = h.depth ?? 1
   const marker = "#".repeat(Math.max(1, Math.min(6, depth)))
 
   // Prefer our `title`; fallback to original phrasing if present
-  let phrasing: PhrasingContent[] | undefined = h.title
-  if (!phrasing || !phrasing.length) {
-    // If someone fed us a non-sectionized heading, fall back gracefully
-    if (Array.isArray(h.children) && h.children.length) {
-      // Only keep phrasing nodes from original children for the title
-      // (remark-parse ensures heading children are phrasing by default)
-      phrasing = h.children as any
-    } else {
-      phrasing = []
-    }
+  let titlePara: Paragraph | null = h.title ?? null
+  if (!titlePara) {
+    const phrasing = Array.isArray(h.children)
+      ? (h.children as PhrasingContent[])
+      : []
+    titlePara = { type: "paragraph", children: phrasing }
   }
 
   const titleInline = context.containerPhrasing(
-    { type: "paragraph", children: phrasing },
+    titlePara,
     { before: "", after: "" }
   ).trim()
 

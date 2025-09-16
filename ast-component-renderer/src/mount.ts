@@ -47,8 +47,7 @@ export function pickAnchorByLinesInScope(
 
 export function placeMount(policy: MountPolicy, anchor: HTMLElement): HTMLElement {
   const host = document.createElement("div");
-  if (policy === "before-anchor") anchor.parentElement?.insertBefore(host, anchor);
-  else if (policy === "after-anchor") anchor.parentElement?.insertBefore(host, anchor.nextSibling);
+  if (policy === "after-heading") anchor.parentElement?.insertBefore(host, anchor.nextSibling);
   else if (policy === "append-inside-li") (anchor.closest("li") ?? anchor).appendChild(host);
   else anchor.appendChild(host);
   return host;

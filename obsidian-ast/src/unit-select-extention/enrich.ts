@@ -29,7 +29,7 @@ export function enrichFieldsAndTags(ast: MdastRoot) {
     if (n?.type === "paragraph" || n?.type === "heading" || n?.type === "tableCell") harvestInline(n, n);
 
     // If you sectionized headings, also index title phrasing
-    if (n?.type === "heading" && n.title) harvestInline({ type: "paragraph", children: n.title }, n);
+    if (n?.type === "heading" && n.title) harvestInline(n.title, n);
 
     // List item: read first paragraph
     if (n?.type === "listItem" && Array.isArray(n.children)) {
