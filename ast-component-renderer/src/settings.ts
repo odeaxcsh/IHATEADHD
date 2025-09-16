@@ -18,7 +18,7 @@ export class RendererSettingsTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "AST Component Renderer – Settings" });
+    containerEl.createEl("h2", { text: "AST Component Renderer - Settings" });
 
     new Setting(containerEl)
       .setName("Log level")

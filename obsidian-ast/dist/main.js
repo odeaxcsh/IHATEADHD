@@ -12635,7 +12635,70 @@ function isMdNode(x) {
   return !!x && typeof x === "object" && typeof x.type === "string";
 }
 
+// src/logger.ts
+var LOG_LEVELS = ["debug", "info", "warn", "error", "off"];
+var DEFAULT_LOG_LEVEL = "info";
+var LOG_LEVEL_LABELS = {
+  debug: "Debug (very verbose)",
+  info: "Info (recommended)",
+  warn: "Warn (warnings & errors)",
+  error: "Error only",
+  off: "Off"
+};
+var LEVEL_RANK = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+  off: 50
+};
+var globalLevelGetter = () => DEFAULT_LOG_LEVEL;
+function normalizeLogLevel(value, fallback = DEFAULT_LOG_LEVEL) {
+  if (typeof value === "string") {
+    const normalized = value.toLowerCase();
+    if (LOG_LEVELS.includes(normalized)) return normalized;
+  }
+  return fallback;
+}
+var ScopedLogger = class {
+  constructor(scope2, levelGetter) {
+    this.scope = scope2;
+    this.levelGetter = levelGetter;
+  }
+  shouldLog(level) {
+    const current = normalizeLogLevel(this.levelGetter?.(), DEFAULT_LOG_LEVEL);
+    return LEVEL_RANK[level] >= LEVEL_RANK[current];
+  }
+  withScope(args) {
+    return [`[${this.scope}]`, ...args];
+  }
+  debug(...args) {
+    if (this.shouldLog("debug")) console.debug(...this.withScope(args));
+  }
+  info(...args) {
+    if (this.shouldLog("info")) console.info(...this.withScope(args));
+  }
+  warn(...args) {
+    if (this.shouldLog("warn")) console.warn(...this.withScope(args));
+  }
+  error(...args) {
+    if (this.shouldLog("error")) console.error(...this.withScope(args));
+  }
+};
+function setLoggerLevelGetter(getter) {
+  if (typeof getter === "function") {
+    globalLevelGetter = () => normalizeLogLevel(getter(), DEFAULT_LOG_LEVEL);
+  } else {
+    globalLevelGetter = () => DEFAULT_LOG_LEVEL;
+  }
+}
+function createLogger(scope2, getter) {
+  const levelGetter = getter ? () => normalizeLogLevel(getter(), DEFAULT_LOG_LEVEL) : () => globalLevelGetter();
+  return new ScopedLogger(scope2, levelGetter);
+}
+
 // src/mdast-extensions/remark-directive-extension/from-directive.ts
+var log = createLogger("obsidian-ast:directive");
 function remarkDirectiveAdapter() {
   return (tree) => {
     visit(tree, (node2, index2, parent2) => {
@@ -12654,7 +12717,7 @@ function remarkDirectiveAdapter() {
             try {
               attrs[k] = parsePropValue(String(v));
             } catch (err) {
-              console.warn(`[obsidian-ast] prop parse failed (${name}.${k}):`, v, err);
+              log.warn("prop parse failed", { directive: name, prop: k, value: v, error: err });
               attrs[k] = { kind: "lit", value: String(v) };
             }
           }
@@ -12663,13 +12726,9 @@ function remarkDirectiveAdapter() {
         var comp = buildComponentNode(name, attrs, bodyChildren);
         copyPos(comp, node2);
         parent2.children.splice(index2, 1, comp);
-        console.debug("[obsidian-ast] directive -> component:", node2, "=>", comp, "at ", comp.position);
+        log.debug("directive transformed", { name, position: comp.position });
       } catch (err) {
-        console.error(
-          "[obsidian-ast] directive transform failed; leaving node as-is:",
-          err,
-          node2
-        );
+        log.error("directive transform failed; leaving node as-is", err, node2);
       }
     });
   };
@@ -12677,15 +12736,18 @@ function remarkDirectiveAdapter() {
 
 // src/mdast-extensions/remark-directive-extension/bundle.ts
 var remarkDirective2 = remarkDirective?.default ?? remarkDirective;
+var log2 = createLogger("obsidian-ast:remark-directives");
 var remarkDirectivesExtension = function() {
   try {
     if (typeof remarkDirective2 !== "function") {
+      log2.warn("remark-directive export is not callable", { type: typeof remarkDirective2 });
       throw new Error("remark-directive is not a function");
     }
     this.use(remarkDirective2);
     this.use(remarkDirectiveAdapter);
+    log2.debug("remarkDirectivesExtension loaded");
   } catch (e) {
-    console.error("[obsidian-ast] remarkDirectivesExtension failed:", e);
+    log2.error("remarkDirectivesExtension failed", e);
   }
 };
 
@@ -12696,7 +12758,8 @@ var DEFAULT_SETTINGS = {
   enableInlineField: true,
   enableCallout: true,
   enableNestedHeadings: true,
-  enableDirectives: true
+  enableDirectives: true,
+  logLevel: "info"
 };
 var AstSettingsTab = class extends import_obsidian.PluginSettingTab {
   constructor(app, plugin) {
@@ -12707,6 +12770,15 @@ var AstSettingsTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "AST Tools \u2013 Settings" });
+    new import_obsidian.Setting(containerEl).setName("Log level").setDesc("Controls how much information is printed to the developer console.").addDropdown((drop) => {
+      for (const level of LOG_LEVELS) {
+        drop.addOption(level, LOG_LEVEL_LABELS[level]);
+      }
+      drop.setValue(this.plugin.settings.logLevel).onChange(async (value) => {
+        this.plugin.settings.logLevel = value;
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian.Setting(containerEl).setName("MdTag (#tag)").setDesc("Enable custom mdTag inline syntax.").addToggle(
       (t) => t.setValue(this.plugin.settings.enableMdTag).onChange(async (v) => {
         this.plugin.settings.enableMdTag = v;
@@ -15155,61 +15227,94 @@ var AstPlugin = class extends import_obsidian2.Plugin {
     super(app, manifest);
     this.cache = /* @__PURE__ */ new Map();
     this.settings = { ...DEFAULT_SETTINGS };
+    this.log = createLogger("obsidian-ast", () => this.settings.logLevel);
     /* ---------- processor ---------- */
     this.rebuildProcessor = () => {
-      console.info("[obsidian-ast] rebuildProcessor start");
+      this.log.info("rebuildProcessor start");
       try {
         let p = unified().use(remarkParse).use(remarkGfm);
-        if (this.settings.enableMdTag) p = p.use(remark_mdtag_default);
-        if (this.settings.enableInlineField) p = p.use(remark_inlinefield_default);
-        if (this.settings.enableDirectives) p = p.use(remarkDirectivesExtension);
-        if (this.settings.enableCallout) p = p.use(remark_callout_default);
-        if (this.settings.enableNestedHeadings) p = p.use(remark_nested_heading_default);
+        if (this.settings.enableMdTag) {
+          this.log.debug("enabling mdTag extension");
+          p = p.use(remark_mdtag_default);
+        }
+        if (this.settings.enableInlineField) {
+          this.log.debug("enabling inline field extension");
+          p = p.use(remark_inlinefield_default);
+        }
+        if (this.settings.enableDirectives) {
+          this.log.debug("enabling directives extension");
+          p = p.use(remarkDirectivesExtension);
+        }
+        if (this.settings.enableCallout) {
+          this.log.debug("enabling callout extension");
+          p = p.use(remark_callout_default);
+        }
+        if (this.settings.enableNestedHeadings) {
+          this.log.debug("enabling nested headings extension");
+          p = p.use(remark_nested_heading_default);
+        }
         this.processor = p;
-        console.info("[obsidian-ast] rebuildProcessor ok");
+        this.log.info("rebuildProcessor ok");
       } catch (e) {
-        console.error("[obsidian-ast] processor build failed; falling back:", e);
+        this.log.error("processor build failed; falling back", e);
         new import_obsidian2.Notice("obsidian-ast: fell back to basic parser (see console)", 5e3);
         this.processor = unified().use(remarkParse).use(remarkGfm);
       }
     };
   }
   async onload() {
+    this.log.info("onload start");
     await this.loadSettings();
+    this.log.debug("settings loaded", { settings: this.settings });
     this.rebuildProcessor();
     this.api = {
       ast: (path2) => {
+        this.log.debug("api.ast invoked", { path: path2 });
         const astPromise = this.ensureParsedByPath(path2);
         const nodesPromise = astPromise.then((ast2) => ast2 ? [ast2] : []);
         return makeChain(astPromise, nodesPromise);
       }
     };
-    this.register(() => this.api = void 0);
+    this.register(() => {
+      this.log.debug("api disposed");
+      this.api = void 0;
+    });
     this.registerEvent(this.app.vault.on("modify", async (f) => {
-      if (f instanceof import_obsidian2.TFile && f.extension === "md") await this.ensureParsed(f);
+      if (f instanceof import_obsidian2.TFile && f.extension === "md") {
+        this.log.debug("vault modify event", { path: f.path });
+        await this.ensureParsed(f);
+      }
     }));
     this.registerEvent(this.app.vault.on("rename", (f, oldPath) => {
       if (f instanceof import_obsidian2.TFile && f.extension === "md") {
+        this.log.debug("vault rename event", { from: oldPath, to: f.path });
         const e = this.cache.get(oldPath);
         if (e) {
           this.cache.delete(oldPath);
           this.cache.set(f.path, e);
+          this.log.debug("cache entry moved", { from: oldPath, to: f.path });
         }
       }
     }));
     this.registerEvent(this.app.vault.on("delete", (f) => {
-      if (f instanceof import_obsidian2.TFile && f.extension === "md") this.cache.delete(f.path);
+      if (f instanceof import_obsidian2.TFile && f.extension === "md") {
+        this.log.debug("vault delete event", { path: f.path });
+        this.cache.delete(f.path);
+      }
     }));
     this.registerMarkdownCodeBlockProcessor("ast", async (src, el, ctx) => {
+      const selector = src.trim();
+      this.log.debug("code block processor invoked", { selector, sourcePath: ctx.sourcePath });
       try {
-        const selector = src.trim();
         if (!selector) throw new Error("selector missing");
         const ast2 = await this.ensureParsedByPath(ctx.sourcePath);
         if (!ast2) {
+          this.log.warn("code block aborted: no AST available", { sourcePath: ctx.sourcePath });
           el.setText("(no AST)");
           return;
         }
         const nodes = selectExtended(ast2, selector, [ast2]);
+        this.log.debug("code block selector result", { selector, count: nodes.length });
         if (!nodes.length) {
           el.setText("(no matches)");
           return;
@@ -15220,6 +15325,7 @@ var AstPlugin = class extends import_obsidian2.Plugin {
           block.createEl("hr");
         }
       } catch (e) {
+        this.log.error("code block render failed", e);
         el.setText(`ast error: ${e.message}`);
       }
     });
@@ -15227,36 +15333,51 @@ var AstPlugin = class extends import_obsidian2.Plugin {
       id: "show-current-file-ast-counts",
       name: "Show AST summary for current file",
       callback: async () => {
+        this.log.debug("command invoked: show-current-file-ast-counts");
         const file = this.getActiveFile();
         if (!file) {
+          this.log.warn("command aborted: no active file");
           new import_obsidian2.Notice("No active file.");
           return;
         }
         const ast2 = await this.ensureParsed(file);
         if (!ast2) {
+          this.log.warn("command aborted: AST unavailable", { path: file.path });
           new import_obsidian2.Notice("Could not parse current file.");
           return;
         }
         const c = countByType(ast2);
+        this.log.info("command result", { path: file.path, counts: c });
         new import_obsidian2.Notice(
           `Types: ${Object.keys(c).length}. H:${c["heading"] ?? 0} P:${c["paragraph"] ?? 0} L:${c["list"] ?? 0} CA:${c["callout"] ?? 0}`
         );
       }
     });
     this.addSettingTab(new AstSettingsTab(this.app, this));
+    this.log.info("onload complete");
   }
   onunload() {
+    this.log.info("onunload");
     this.cache.clear();
+    setLoggerLevelGetter(void 0);
   }
   /* ---------- settings ---------- */
   async loadSettings() {
     const data = await this.loadData();
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, data || {});
+    const merged = Object.assign({}, DEFAULT_SETTINGS, data || {});
+    merged.logLevel = normalizeLogLevel(merged.logLevel, DEFAULT_SETTINGS.logLevel);
+    this.settings = merged;
+    setLoggerLevelGetter(() => this.settings.logLevel);
+    this.log.debug("loadSettings complete", { settings: this.settings });
   }
   async saveSettings() {
+    this.settings.logLevel = normalizeLogLevel(this.settings.logLevel, DEFAULT_SETTINGS.logLevel);
+    setLoggerLevelGetter(() => this.settings.logLevel);
+    this.log.info("saveSettings", { settings: this.settings });
     await this.saveData(this.settings);
     await this.rebuildProcessor();
     this.cache.clear();
+    this.log.debug("cache cleared after save");
   }
   /* ---------- AST / cache ---------- */
   getActiveFile() {
@@ -15265,20 +15386,40 @@ var AstPlugin = class extends import_obsidian2.Plugin {
   }
   async ensureParsedByPath(path2) {
     const f = this.app.vault.getAbstractFileByPath(path2);
-    if (!(f instanceof import_obsidian2.TFile) || f.extension !== "md") return;
+    if (!(f instanceof import_obsidian2.TFile) || f.extension !== "md") {
+      this.log.debug("ensureParsedByPath skip: not a markdown file", { path: path2 });
+      return;
+    }
+    this.log.debug("ensureParsedByPath resolved file", { path: f.path });
     return this.ensureParsed(f);
   }
   async ensureParsed(f) {
-    if (f.extension !== "md") return;
+    if (f.extension !== "md") {
+      this.log.debug("ensureParsed skip: not markdown", { path: f.path, extension: f.extension });
+      return;
+    }
     const stat = await this.app.vault.adapter.stat(f.path);
     const size = stat?.size ?? 0, mtime = stat?.mtime ?? 0;
     const prev = this.cache.get(f.path);
-    if (prev && prev.mtime === mtime && prev.size === size) return prev.ast;
-    const raw = await this.app.vault.read(f);
-    const ast2 = await this.processor.run(this.processor.parse(raw));
-    enrichFieldsAndTags(ast2);
-    this.cache.set(f.path, { ast: ast2, mtime, size, raw });
-    return ast2;
+    if (prev && prev.mtime === mtime && prev.size === size) {
+      this.log.debug("cache hit", { path: f.path, mtime, size });
+      return prev.ast;
+    }
+    this.log.debug("cache miss", { path: f.path, mtime, size, hadPrevious: !!prev });
+    try {
+      const raw = await this.app.vault.read(f);
+      this.log.debug("file read", { path: f.path, length: raw.length });
+      const ast2 = await this.processor.run(this.processor.parse(raw));
+      this.log.debug("ast parsed", { path: f.path });
+      enrichFieldsAndTags(ast2);
+      this.log.debug("ast enriched", { path: f.path });
+      this.cache.set(f.path, { ast: ast2, mtime, size, raw });
+      this.log.debug("cache updated", { path: f.path, mtime, size });
+      return ast2;
+    } catch (error) {
+      this.log.error("failed to parse file", { path: f.path }, error);
+      throw error;
+    }
   }
 };
 function countByType(ast2) {
