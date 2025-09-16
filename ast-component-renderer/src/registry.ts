@@ -1,4 +1,4 @@
-import type { ComponentRegistry, RegistryEntry, ComponentRenderer } from "./types";
+import type { ComponentRegistry, RegistryEntry, ComponentRenderer } from "./types.js";
 
 export class InMemoryRegistry implements ComponentRegistry {
   private map = new Map<string, ComponentRenderer>();

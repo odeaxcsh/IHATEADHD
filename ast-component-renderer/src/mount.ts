@@ -1,5 +1,5 @@
 import type { MarkdownPostProcessorContext } from "obsidian";
-import type { MdNode, MountPolicy } from "./types";
+import type { MdNode, MountPolicy } from "./types.js";
 
 const VERBOSE = true;
 const tag = (m: string) => `[ACR:mount] ${m}`;
@@ -15,13 +15,13 @@ export function pickAnchorByLinesInScope(
   dbg(tag(`pickAnchor scope=${scopeEl.tagName}.${scopeEl.className} node=${sLine}-${eLine}`));
 
   const candidates: HTMLElement[] = [scopeEl];
-  candidates.push(
-    ...scopeEl.querySelectorAll<HTMLElement>([
-      "li.task-list-item","li","p","blockquote",
-      "h1,h2,h3,h4,h5,h6","table","thead","tbody","tr","td","th",
-      "pre","code","div"
-    ].join(","))
-  );
+  const selector = [
+    "li.task-list-item","li","p","blockquote",
+    "h1,h2,h3,h4,h5,h6","table","thead","tbody","tr","td","th",
+    "pre","code","div"
+  ].join(",");
+  const matches = scopeEl.querySelectorAll<HTMLElement>(selector);
+  for (const el of Array.from(matches)) candidates.push(el);
 
   let best: { el: HTMLElement; span: number } | null = null;
   let considered = 0;

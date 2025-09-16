@@ -8,7 +8,10 @@
     "build": "node build.mjs && npm run copy:dist",
     "copy:dist": "cpx manifest.json dist/ && cpx versions.json dist/ && cpx styles.css dist/ || exit 0",
     "release": "npm run build && cd dist && zip -r ../ast-component-renderer.zip .",
-    "clean": "rimraf dist main.js ast-component-renderer.zip"
+    "clean": "rimraf dist main.js ast-component-renderer.zip .test-build",
+    "test": "npm run test:build && npm run test:run",
+    "test:build": "tsc -p tsconfig.test.json",
+    "test:run": "node --test .test-build/__tests__"
   },
   "devDependencies": {
     "@types/node": "^22.18.1",

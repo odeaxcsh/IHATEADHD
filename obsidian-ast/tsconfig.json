@@ -16,7 +16,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node", "obsidian"]
+    "typeRoots": ["./types"]
   },
   "include": ["src"]
 }

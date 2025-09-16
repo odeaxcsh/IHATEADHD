@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.test-build",
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "module": "NodeNext",
+    "target": "ES2020",
+    "moduleResolution": "NodeNext",
+    "typeRoots": ["./types"]
+  },
+  "include": [
+    "types/**/*.d.ts",
+    "src/__tests__/**/*.ts",
+    "src/mount.ts",
+    "src/registry.ts",
+    "src/renderers/**/*.ts",
+    "src/types.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
