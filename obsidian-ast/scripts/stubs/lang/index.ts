@@ -2,10 +2,23 @@ import { visit } from "../unist-util-visit";
 
 interface Query { source: string }
 
+function collectChildren(node: any): any[] {
+  const out: any[] = [];
+  if (Array.isArray(node?.children)) out.push(...node.children);
+  const title = node?.title;
+  if (Array.isArray(title)) out.push(...title);
+  else if (title) out.push(title);
+  return out;
+}
+
 function nodesByType(tree: any, type: string): any[] {
   const matches: any[] = [];
   visit(tree, node => { if (node?.type === type) matches.push(node); });
   return matches;
+}
+
+function directChildrenByType(node: any, type: string): any[] {
+  return collectChildren(node).filter(child => child?.type === type);
 }
 
 function descendants(nodes: any[], depth: number): any[] {
@@ -38,13 +51,22 @@ export function run(tree: any, source: string, scopes?: any[]): any[] {
   }
 
   const [pathPart, filterPart] = trimmed.split("[");
-  const parts = pathPart.split(">>").map(p => p.trim()).filter(Boolean);
+  const tokens = pathPart.split(/(>>|>)/).map(t => t.trim()).filter(Boolean);
 
   let current = startNodes;
-  for (const part of parts) {
+  let mode: ">>" | ">" = ">>";
+  for (const token of tokens) {
+    if (token === ">" || token === ">>") {
+      mode = token as ">>" | ">";
+      continue;
+    }
     const nodes: any[] = [];
-    for (const root of current) nodes.push(...nodesByType(root, part));
+    for (const root of current) {
+      if (mode === ">") nodes.push(...directChildrenByType(root, token));
+      else nodes.push(...nodesByType(root, token));
+    }
     current = nodes;
+    mode = ">>";
   }
 
   if (filterPart) {

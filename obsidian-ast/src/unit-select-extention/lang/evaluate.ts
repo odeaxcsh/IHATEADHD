@@ -5,7 +5,7 @@ import type {
 } from "./ast";
 import { expandFieldChain } from "../expand";
 import {
-  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos
+  runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos, structuralChildren
 } from "../traverse";
 
 type Ctx = { ast: any, parentMap: WeakMap<any, any | null> };
@@ -18,7 +18,7 @@ export function evaluateQuery(astRoot: any, query: Query, scopes?: any[]): any[]
 }
 
 function childrenOf(n: any): any[] {
-  return Array.isArray(n?.children) ? n.children : [];
+  return structuralChildren(n);
 }
 
 /* ---------- expr / chain ---------- */
@@ -262,12 +262,19 @@ function pickComparable(n: any, key: string): any {
   if (key === "title") {
     const t = (n as any).title;
     if (!t) return "";
-    if (Array.isArray(t)) return "[phrasing]";
-    return (t as any).value ?? "";
+    if (Array.isArray(t)) return toText({ type: "paragraph", children: t });
+    return toText(t);
   }
   if (key === "text") return typeof n?.value === "string" ? n.value : "";
   if (key.startsWith("field.")) return n.fields?.[key.slice(6).trim()];
   return (n as any)?.[key];
+}
+
+function toText(node: any): string {
+  if (!node) return "";
+  if (typeof node.value === "string") return node.value;
+  if (Array.isArray(node.children)) return node.children.map(toText).join("");
+  return "";
 }
 
 function literalToJs(v: StringLit | NumberLit | IdentLit): string | number {

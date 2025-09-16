@@ -1,9 +1,61 @@
-import { visit } from "unist-util-visit";
+type NodeLike = { type?: string; position?: any; [k: string]: any };
+
+const SKIP_KEYS = new Set([
+  "type",
+  "position",
+  "value",
+  "depth",
+  "fields",
+  "tags",
+  "data",
+  "meta",
+  "identifier",
+  "calloutType",
+  "expanded",
+  "parent"
+]);
+
+export function structuralChildren(node: NodeLike): NodeLike[] {
+  const out: NodeLike[] = [];
+  if (!node || typeof node !== "object") return out;
+  const push = (child: any) => {
+    if (child && typeof child === "object" && typeof child.type === "string") out.push(child as NodeLike);
+  };
+  if (Array.isArray((node as any).children)) {
+    for (const child of (node as any).children) push(child);
+  }
+  const title = (node as any).title;
+  if (Array.isArray(title)) {
+    for (const child of title) push(child);
+  } else if (title) {
+    push(title);
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (SKIP_KEYS.has(key) || key === "children" || key === "title") continue;
+    if (!value) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) push(item);
+      continue;
+    }
+    if (typeof value === "object") push(value);
+  }
+  return out;
+}
 
 /** Collect every node inside scope (including scope) */
 export function runAllWithin(scope: any): any[] {
+  if (!scope) return [];
   const nodes: any[] = [];
-  visit(scope, (n: any) => { nodes.push(n); });
+  const stack: NodeLike[] = [scope];
+  const seen = new Set<NodeLike>();
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (!node || seen.has(node)) continue;
+    seen.add(node);
+    nodes.push(node);
+    const children = structuralChildren(node);
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
+  }
   return nodes;
 }
 
@@ -26,10 +78,17 @@ export function uniqueById(arr: any[]): any[] {
 
 /** Weak parent map (root → null, others → parent) */
 export function buildParentMap(root: any): WeakMap<any, any | null> {
-  const parents = new WeakMap<any, any | null>(); parents.set(root, null);
-  visit(root, (n: any, _i: number | null, p: any | null) => {
-    if (n && !parents.has(n)) parents.set(n, p ?? null);
-  });
+  const parents = new WeakMap<any, any | null>();
+  if (!root) return parents;
+  const stack: Array<{ node: NodeLike; parent: NodeLike | null }> = [{ node: root, parent: null }];
+  while (stack.length) {
+    const { node, parent } = stack.pop()!;
+    if (!node || parents.has(node)) continue;
+    parents.set(node, parent ?? null);
+    for (const child of structuralChildren(node)) {
+      stack.push({ node: child, parent: node });
+    }
+  }
   return parents;
 }
 

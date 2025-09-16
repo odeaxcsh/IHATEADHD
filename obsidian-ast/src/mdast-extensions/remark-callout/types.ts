@@ -1,19 +1,19 @@
 /**
  * Callout node:
  * - calloutType: normalized lower-case type (e.g., "tip", "warning")
- * - expanded: '+' | '-' | undefined  (undefined if unknown/not present)
- * - title: usually a Paragraph node (optional; absent if none)
+ * - expanded: 'open' | 'closed' | undefined (undefined if unknown/not present)
+ * - title: Paragraph node (always present, may be empty)
  * - children: the callout's content blocks
  */
 import type {Parent} from 'unist'
-import type {PhrasingContent, BlockContent} from 'mdast'
+import type {BlockContent, Paragraph} from 'mdast'
 
 export interface Callout extends Parent {
   type: 'callout'
   calloutType: string
-  expanded?: '+' | '-'
-  /** Title phrasing on the first line (no paragraph wrapper) */
-  title?: PhrasingContent[]
+  expanded?: 'open' | 'closed'
+  /** Title paragraph extracted from the first line */
+  title: Paragraph
   children: BlockContent[]
 }
 

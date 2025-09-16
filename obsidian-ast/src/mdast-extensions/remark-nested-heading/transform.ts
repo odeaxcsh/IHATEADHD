@@ -1,5 +1,6 @@
-import type {Root, Content, Heading, PhrasingContent, BlockContent, Position} from "mdast"
+import type {Root, Content, Heading, PhrasingContent, BlockContent, Paragraph} from "mdast"
 import type {Plugin} from "unified"
+import { unionPos, copyPos } from "../helper"
 
 /**
  * Sectionize headings:
@@ -13,7 +14,7 @@ export function transformNestedHeadings() {
     const root = tree as unknown as { children: Content[] }
     const out: Content[] = []
     type H = Heading & {
-      title?: PhrasingContent[]
+      title: Paragraph
       children: Array<BlockContent | H>
       _sectionized?: true
     }
@@ -21,22 +22,41 @@ export function transformNestedHeadings() {
     const stack: H[] = []
 
     function finalizePosition(sec: H) {
-      const start = sec.position?.start
-      const last: any = sec.children.length ? sec.children[sec.children.length - 1] : null
-      const end = last?.position?.end ?? sec.position?.end
-      if (start && end) sec.position = { start, end } as Position
+      let nextPos = unionPos(sec.position, sec.title?.position)
+      for (const child of sec.children) {
+        nextPos = unionPos(nextPos, (child as any)?.position ?? null)
+      }
+      if (nextPos) sec.position = nextPos
+    }
+
+    function cloneHeadingData(h: Heading): Partial<Heading> {
+      const { children: _children, ...rest } = h as any
+      return { ...rest }
+    }
+
+    function toParagraph(children: PhrasingContent[], source: Heading): Paragraph {
+      const paragraph: Paragraph = { type: "paragraph", children: children.slice() }
+      copyPos(paragraph, source)
+      if (children.length) {
+        let accum = null as any
+        for (const child of children) {
+          accum = unionPos(accum, (child as any)?.position ?? null)
+        }
+        paragraph.position = unionPos(paragraph.position, accum)
+      }
+      return paragraph
     }
 
     function openSection(h: Heading): H {
-      // Create a new object so we don't mutate the original node in-place
+      const phrasing = (h.children as PhrasingContent[]) ?? []
+      const title = toParagraph(phrasing, h)
       const sec: H = {
-        ...h,
+        ...(cloneHeadingData(h) as Heading),
         type: "heading",
-        title: (h.children as PhrasingContent[]) ?? [],
+        title,
         children: [],
         _sectionized: true
       }
-      // Ensure heading "children" now refers to the section body array
       ;(sec as any).children = sec.children
       return sec
     }

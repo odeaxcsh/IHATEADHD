@@ -1,5 +1,25 @@
 import type { } from "./lang/ast";
 
+type MdNode = { type: string; position?: { start?: { offset?: number }; end?: { offset?: number } } };
+
+function cloneParagraphFromArray(items: any[], host: any): MdNode {
+  const paragraph: MdNode = { type: "paragraph", children: items.slice() } as any;
+  const posSources = items.filter((c: any) => c && typeof c === "object" && c.position).map((c: any) => c.position);
+  if (posSources.length) {
+    const first = posSources[0];
+    let start = first?.start, end = first?.end;
+    for (const pos of posSources.slice(1)) {
+      if (!pos) continue;
+      if (!start || (pos.start?.offset ?? 0) < (start.offset ?? Infinity)) start = pos.start;
+      if (!end || (pos.end?.offset ?? 0) > (end.offset ?? -Infinity)) end = pos.end;
+    }
+    if (start && end) paragraph.position = { start, end } as any;
+  } else if (host?.position) {
+    paragraph.position = host.position;
+  }
+  return paragraph;
+}
+
 type ExpandCtx = { parentMap?: WeakMap<any, any | null> };
 
 export function expandFieldChain(nodes: any[], fields: string[], ctx?: ExpandCtx): any[] {
@@ -20,7 +40,7 @@ export function expandFieldOnce(nodes: any[], field: string, ctx?: ExpandCtx): a
     const val = (n as any)[field];
 
     if (field === "title") {
-      if (Array.isArray(val)) { out.push({ type: "paragraph", children: val, position: n.position }); continue; }
+      if (Array.isArray(val)) { out.push(cloneParagraphFromArray(val, n)); continue; }
       if (val && typeof val === "object") { out.push(val); continue; }
       continue;
     }
