@@ -55,7 +55,7 @@ export type CondCompare = {
   kind: "cmp",
   key: { raw: string, isField: boolean }, // "field.foo" => {raw:"foo",isField:true}
   op: Comparator,
-  value: StringLit | NumberLit | IdentLit
+  value: Literal
 };
 
 export type CondSubquery = {
@@ -75,6 +75,9 @@ export type CondIn = {
 export type StringLit = { kind: "str", value: string };
 export type NumberLit = { kind: "num", value: number };
 export type IdentLit  = { kind: "ident", value: string };
+export type RegexLit  = { kind: "regex", pattern: string, flags: string };
+
+export type Literal = StringLit | NumberLit | IdentLit | RegexLit;
 
 export class SelectorError extends Error {
   constructor(msg: string) { super(msg); this.name = "SelectorError"; }

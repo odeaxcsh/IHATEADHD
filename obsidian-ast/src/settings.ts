@@ -79,7 +79,8 @@ export class AstSettingsTab extends PluginSettingTab {
         b.setButtonText("Clear").onClick(async () => {
           (this.plugin as any).cache?.clear?.();
           // No await save needed; this is just a cache flush.
-          new (window as any).Notice?.("AST cache cleared");
+          const NoticeCtor = (window as any)?.Notice;
+          if (typeof NoticeCtor === "function") new NoticeCtor("AST cache cleared");
         })
       );
   }

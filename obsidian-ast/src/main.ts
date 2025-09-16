@@ -20,7 +20,8 @@ import { remarkNestedHeading } from "./mdast-extensions/remark-nested-heading";
 import { remarkDirectivesExtension } from "./mdast-extensions/remark-directive-extension";
 
 import { AstSettings, DEFAULT_SETTINGS, AstSettingsTab } from "./settings";
-import { selectExtended, enrichFieldsAndTags, makeChain, AstChai } from "./unit-select-extention";
+import { selectExtended, enrichFieldsAndTags, makeChain } from "./unit-select-extention";
+import type { AstChain } from "./unit-select-extention";
 
 import { remarkDirectiveAdapter } from "./mdast-extensions/remark-directive-extension/from-directive";
 

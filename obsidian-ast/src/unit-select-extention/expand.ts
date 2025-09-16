@@ -1,5 +1,3 @@
-import type { } from "./lang/ast";
-
 type ExpandCtx = { parentMap?: WeakMap<any, any | null> };
 
 export function expandFieldChain(nodes: any[], fields: string[], ctx?: ExpandCtx): any[] {

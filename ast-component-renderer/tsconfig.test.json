@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.test-out",
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "types": []
+  },
+  "include": ["src/**/*"]
+}

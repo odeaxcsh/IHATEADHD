@@ -1,7 +1,7 @@
 import { selectAll } from "unist-util-select";
 import type {
   Query, Expr, UnionExpr, IntersectExpr, ChainExpr, PrimaryExpr, Segment,
-  CondExpr, CondOr, CondAnd, CondPrimary, CondAtom, CondCompare, CondSubquery, CondIn, Comparator, Op
+  CondExpr, CondOr, CondAnd, CondPrimary, CondAtom, CondCompare, CondSubquery, CondIn, Comparator, Op, Literal
 } from "./ast";
 import { expandFieldChain } from "../expand";
 import {
@@ -191,20 +191,29 @@ function evalCondAtom(node: CondAtom, n: any, ctx: Ctx): boolean {
 }
 
 function evalCmp(c: CondCompare, n: any): boolean {
-  const lhsRaw = c.isField ? n?.fields?.[c.key.raw] : pickComparable(n, c.key.raw);
-  const rhs = literalToJs(c.value);
-  const lhs = String(lhsRaw ?? "");
-  const rhsS = String(rhs ?? "");
+  const lhsRaw = c.key.isField ? n?.fields?.[c.key.raw] : pickComparable(n, c.key.raw);
+  const rhsLiteral = c.value;
+  const rhs = literalToJs(rhsLiteral);
+
+  if (rhs instanceof RegExp) {
+    if (c.op !== "~=") return false;
+    const subject = typeof lhsRaw === "string" ? lhsRaw : String(lhsRaw ?? "");
+    return rhs.test(subject);
+  }
 
   // numeric ops
   if (c.op === "<" || c.op === "<=" || c.op === ">" || c.op === ">=") {
-    const a = Number(lhsRaw), b = Number(rhs);
+    const a = Number(lhsRaw);
+    const b = typeof rhs === "number" ? rhs : Number(rhs);
     if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
     if (c.op === "<")  return a <  b;
     if (c.op === "<=") return a <= b;
     if (c.op === ">")  return a >  b;
     return a >= b;
   }
+
+  const lhs = String(lhsRaw ?? "");
+  const rhsS = String(rhs ?? "");
 
   // string ops (+ case/space insensitive variants)
   const eq       = (a: string, b: string) => a === b;
@@ -270,8 +279,11 @@ function pickComparable(n: any, key: string): any {
   return (n as any)?.[key];
 }
 
-function literalToJs(v: StringLit | NumberLit | IdentLit): string | number {
-  if (v.kind === "str") return v.value;
-  if (v.kind === "num") return v.value;
-  return v.value;
+function literalToJs(v: Literal): string | number | RegExp {
+  switch (v.kind) {
+    case "str": return v.value;
+    case "num": return v.value;
+    case "ident": return v.value;
+    case "regex": return new RegExp(v.pattern, v.flags);
+  }
 }

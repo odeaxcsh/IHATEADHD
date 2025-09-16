@@ -1,4 +1,4 @@
-import type { MarkdownPostProcessorContext, Plugin } from "obsidian";
+import type { App, MarkdownPostProcessorContext, Plugin } from "obsidian";
 
 export type MdPoint = { line?: number; column?: number; offset?: number };
 export type MdPosition = { start?: MdPoint; end?: MdPoint };

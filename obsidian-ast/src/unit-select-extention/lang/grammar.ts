@@ -3,7 +3,7 @@ import type {
   Query, Expr, UnionExpr, IntersectExpr, ChainExpr, PrimaryExpr,
   Segment, CondExpr, CondOr, CondAnd, CondPrimary, CondAtom,
   CondCompare, Comparator, CondSubquery, CondIn,
-  StringLit, NumberLit, IdentLit, Op
+  StringLit, NumberLit, IdentLit, RegexLit, Op
 } from "./ast";
 
 /* =========================
@@ -27,7 +27,6 @@ const Ident  = lex(P.regexp(/[A-Za-z_][A-Za-z0-9_-]*/)).map<IdentLit>(v => ({ ki
 const Value  = P.alt<StringLit | NumberLit | IdentLit>(String_, Number_, Ident);
 
 // regex literal /.../flags
-type RegexLit = { kind: "regex", pattern: string, flags: string };
 const Regex_ = lex(P.regexp(/\/((?:[^/\\]|\\.)*)\/([a-z]*)/))
   .map<RegexLit>((full) => {
     const m = full.match(/^\/((?:[^/\\]|\\.)*)\/([a-z]*)$/)!;

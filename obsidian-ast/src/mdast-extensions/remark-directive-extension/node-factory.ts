@@ -22,14 +22,15 @@ export function inlineToMd(e: InlineNodeExpr): MdastChildren {
 
   switch (name) {
     case "text": {
-      const text = String(props.value ?? joinText(bodyChildren));
+      const fallback = joinText(e.body);
+      const text = props.value != null ? String(props.value) : fallback;
       return [{ type: "text", value: text }];
     }
     case "paragraph": {
-      return [{ type: "paragraph", children: bodyChildren.length ? bodyChildren : textToNodes(joinText(e.body)) }];
+        return [{ type: "paragraph", children: bodyChildren.length ? bodyChildren : textToNodes(joinText(e.body)) }];
     }
     case "emphasis": {
-      return [{ type: "emphasis", children: bodyChildren.length ? bodyChildren : textToNodes(joinText(e.body)) }];
+        return [{ type: "emphasis", children: bodyChildren.length ? bodyChildren : textToNodes(joinText(e.body)) }];
     }
     case "strong": {
       return [{ type: "strong", children: bodyChildren.length ? bodyChildren : textToNodes(joinText(e.body)) }];

@@ -41,7 +41,7 @@ export function remarkDirectiveAdapter() {
         }
 
         const bodyChildren = Array.isArray(node.children) ? node.children : [];
-        var comp = buildComponentNode(name, attrs, bodyChildren);
+        const comp = buildComponentNode(name, attrs, bodyChildren);
         copyPos(comp, node);
         parent.children.splice(index, 1, comp);
 
