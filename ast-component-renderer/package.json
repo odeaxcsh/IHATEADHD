@@ -7,6 +7,7 @@
     "dev": "node build.mjs --watch",
     "build": "node build.mjs && npm run copy:dist",
     "copy:dist": "cpx manifest.json dist/ && cpx versions.json dist/ && cpx styles.css dist/ || exit 0",
+    "deploy": "npm run build && rm -rf \"/home/sophie/Documents/Vault/.obsidian/plugins/ast-component-renderer\" && mkdir -p \"/home/sophie/Documents/Vault/.obsidian/plugins/ast-component-renderer\" && cpx -C \"dist/**\" \"/home/sophie/Documents/Vault/.obsidian/plugins/ast-component-renderer\"",
     "release": "npm run build && cd dist && zip -r ../ast-component-renderer.zip .",
     "clean": "rimraf dist main.js ast-component-renderer.zip .test-build",
     "test": "npm run test:build && npm run test:run",

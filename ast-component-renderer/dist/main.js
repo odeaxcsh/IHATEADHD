@@ -69,24 +69,24 @@ function pickAnchorByLinesInScope(scopeEl, ctx, node) {
   const eLine = ((_f = (_e = (_d = node == null ? void 0 : node.position) == null ? void 0 : _d.end) == null ? void 0 : _e.line) != null ? _f : sLine + 1) - 1;
   dbg(tag(`pickAnchor scope=${scopeEl.tagName}.${scopeEl.className} node=${sLine}-${eLine}`));
   const candidates = [scopeEl];
-  candidates.push(
-    ...scopeEl.querySelectorAll([
-      "li.task-list-item",
-      "li",
-      "p",
-      "blockquote",
-      "h1,h2,h3,h4,h5,h6",
-      "table",
-      "thead",
-      "tbody",
-      "tr",
-      "td",
-      "th",
-      "pre",
-      "code",
-      "div"
-    ].join(","))
-  );
+  const selector = [
+    "li.task-list-item",
+    "li",
+    "p",
+    "blockquote",
+    "h1,h2,h3,h4,h5,h6",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "td",
+    "th",
+    "pre",
+    "code",
+    "div"
+  ].join(",");
+  const matches = scopeEl.querySelectorAll(selector);
+  for (const el of Array.from(matches)) candidates.push(el);
   let best = null;
   let considered = 0;
   for (const el of candidates) {
@@ -828,8 +828,11 @@ function secLineRange(ctx, el) {
   return sec ? `L${sec.lineStart}\u2013L${sec.lineEnd}` : "(no section)";
 }
 function cssEscape(s) {
-  const C = window.CSS;
-  return C && typeof C.escape === "function" ? C.escape(s) : s.replace(/["\\#.;?*+~^$[\]()=>|/]/g, "\\$&");
+  const css = window.CSS;
+  if (css && typeof css.escape === "function") {
+    return css.escape(s);
+  }
+  return s.replace(/["\\#.;?*+~^$[\]()=>|/]/g, "\\$&");
 }
 var ASTComponentRenderer = class extends import_obsidian.Plugin {
   constructor() {
