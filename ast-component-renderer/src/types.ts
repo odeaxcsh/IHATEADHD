@@ -4,7 +4,7 @@ export type MdPoint = { line?: number; column?: number; offset?: number };
 export type MdPosition = { start?: MdPoint; end?: MdPoint };
 export interface MdNode { type: string; position?: MdPosition; [k: string]: any; }
 
-export type MountPolicy = "append-inside-block" | "append-inside-li" | "before-anchor" | "after-anchor";
+export type MountPolicy = "append-inside-block" | "append-inside-li" | "after-heading";
 
 export interface RenderContext {
   app: App;
@@ -14,9 +14,10 @@ export interface RenderContext {
 }
 
 export interface ComponentRenderer {
-  render(node: MdNode, mountTarget: HTMLElement, rc: RenderContext): Promise<HTMLElement> | HTMLElement;
+  render(node: MdNode, mountTarget: HTMLElement, rc: RenderContext): Promise<void> | void;
   mountPolicy?: MountPolicy;
   pickAnchor?(node: MdNode, root: HTMLElement, rc: RenderContext): HTMLElement | null;
+  cleanup?(mountTarget: HTMLElement): void;
 }
 
 export interface RegistryEntry { type: string; renderer: ComponentRenderer; }

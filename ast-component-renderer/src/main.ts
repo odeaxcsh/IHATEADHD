@@ -129,6 +129,28 @@ export default class ASTComponentRenderer extends Plugin {
           this.log.info("render start", { id, type });
           await renderer.render(node, host, rc);
           this.log.info("render complete", { id, type });
+          if (renderer.cleanup) {
+            let cleaned = false;
+            const cleanup = () => {
+              if (cleaned) return;
+              cleaned = true;
+              try {
+                renderer.cleanup?.(host);
+              } catch (err) {
+                this.log.error("renderer cleanup failed", { id, type }, err);
+              }
+              host.remove();
+            };
+            this.register(cleanup);
+            const anyCtx = ctx as any;
+            if (anyCtx && typeof anyCtx.addChild === "function") {
+              anyCtx.addChild({
+                el: host,
+                onload() {},
+                onunload: cleanup
+              });
+            }
+          }
         } catch (e) {
           this.log.error("render failed", { id, type }, e);
           host.remove();

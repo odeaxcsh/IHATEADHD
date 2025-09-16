@@ -15,8 +15,12 @@ describe("enrichFieldsAndTags", () => {
     const heading = {
       type: "heading",
       depth: 1,
-      children: [{ type: "text", value: "Heading", ...pos(0) }],
-      title: [{ type: "inlineField", key: "owner", value: "Ada", ...pos(10) }],
+      title: {
+        type: "paragraph",
+        children: [{ type: "inlineField", key: "owner", value: "Ada", ...pos(10) }],
+        ...pos(0, 5)
+      },
+      children: [],
       ...pos(0, 5)
     } as any;
 

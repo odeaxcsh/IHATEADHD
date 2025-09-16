@@ -63,6 +63,88 @@ describe("pickAnchorByLinesInScope", () => {
     const anchor = pickAnchorByLinesInScope(scope, ctx, node);
     assert.equal(anchor, null);
   });
+
+  it("prefers callout containers for callout nodes", () => {
+    const callout = document.createElement("div");
+    callout.className = "callout";
+    const title = document.createElement("div");
+    title.className = "callout-title";
+    const content = document.createElement("div");
+    content.className = "callout-content";
+    callout.append(title, content);
+    scope.append(callout);
+
+    const sections = new Map<HTMLElement, { lineStart: number; lineEnd: number }>([
+      [scope, { lineStart: 0, lineEnd: 20 }],
+      [callout, { lineStart: 2, lineEnd: 12 }],
+      [title, { lineStart: 2, lineEnd: 3 }],
+      [content, { lineStart: 4, lineEnd: 12 }]
+    ]);
+
+    ctx = {
+      getSectionInfo: (el: HTMLElement) => sections.get(el) ?? null
+    } as unknown as MarkdownPostProcessorContext;
+
+    const node: MdNode = {
+      type: "callout",
+      position: { start: { line: 3 }, end: { line: 12 } }
+    };
+
+    const anchor = pickAnchorByLinesInScope(scope, ctx, node);
+    assert.equal(anchor, callout);
+  });
+
+  it("matches callout title elements when the range is tight", () => {
+    const callout = document.createElement("div");
+    callout.className = "callout";
+    const title = document.createElement("div");
+    title.className = "callout-title";
+    const content = document.createElement("div");
+    content.className = "callout-content";
+    callout.append(title, content);
+    scope.append(callout);
+
+    const sections = new Map<HTMLElement, { lineStart: number; lineEnd: number }>([
+      [scope, { lineStart: 0, lineEnd: 20 }],
+      [callout, { lineStart: 5, lineEnd: 15 }],
+      [title, { lineStart: 5, lineEnd: 6 }],
+      [content, { lineStart: 7, lineEnd: 15 }]
+    ]);
+
+    ctx = {
+      getSectionInfo: (el: HTMLElement) => sections.get(el) ?? null
+    } as unknown as MarkdownPostProcessorContext;
+
+    const node: MdNode = {
+      type: "paragraph",
+      position: { start: { line: 6 }, end: { line: 7 } }
+    };
+
+    const anchor = pickAnchorByLinesInScope(scope, ctx, node);
+    assert.equal(anchor, title);
+  });
+
+  it("picks heading elements for heading nodes", () => {
+    const heading = document.createElement("h2");
+    scope.append(heading);
+
+    const sections = new Map<HTMLElement, { lineStart: number; lineEnd: number }>([
+      [scope, { lineStart: 0, lineEnd: 6 }],
+      [heading, { lineStart: 1, lineEnd: 1 }]
+    ]);
+
+    ctx = {
+      getSectionInfo: (el: HTMLElement) => sections.get(el) ?? null
+    } as unknown as MarkdownPostProcessorContext;
+
+    const node: MdNode = {
+      type: "heading",
+      position: { start: { line: 2 }, end: { line: 2 } }
+    };
+
+    const anchor = pickAnchorByLinesInScope(scope, ctx, node);
+    assert.equal(anchor, heading);
+  });
 });
 
 describe("placeMount", () => {
@@ -73,16 +155,9 @@ describe("placeMount", () => {
     return { parent, anchor };
   };
 
-  it("inserts host before the anchor when policy is before-anchor", () => {
+  it("inserts host after the anchor when policy is after-heading", () => {
     const { parent, anchor } = createAnchor();
-    const host = placeMount("before-anchor", anchor);
-    assert.equal(parent.children[0], host);
-    assert.equal(parent.children[1], anchor);
-  });
-
-  it("inserts host after the anchor when policy is after-anchor", () => {
-    const { parent, anchor } = createAnchor();
-    const host = placeMount("after-anchor", anchor);
+    const host = placeMount("after-heading", anchor);
     assert.equal(parent.children[0], anchor);
     assert.equal(parent.children[1], host);
   });

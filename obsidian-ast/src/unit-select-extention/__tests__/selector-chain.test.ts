@@ -11,7 +11,7 @@ const pos = (start: number, end: number = start + 1) => ({
 });
 
 function buildAst() {
-  const heading: any = { type: "heading", depth: 1, children: [{ type: "text", value: "Heading", ...pos(0) }], ...pos(0, 5) };
+  const headingTitle: any = { type: "text", value: "Heading", ...pos(0) };
   const paragraphOpen: any = {
     type: "paragraph",
     children: [{ type: "text", value: "Intro", ...pos(6) }],
@@ -25,10 +25,17 @@ function buildAst() {
     ...pos(16, 25)
   };
   const listItem: any = { type: "listItem", children: [paragraphDone], ...pos(15, 28) };
+  const heading: any = {
+    type: "heading",
+    depth: 1,
+    title: { type: "paragraph", children: [headingTitle], ...pos(0, 5) },
+    children: [paragraphOpen, listItem],
+    ...pos(0, 30)
+  };
 
   const root: Root = {
     type: "root",
-    children: [heading, paragraphOpen, listItem],
+    children: [heading],
     ...pos(0, 30)
   } as any;
 
@@ -49,11 +56,19 @@ describe("selectExtended", () => {
   });
 
   it("supports @ hop selectors", () => {
-    const { root, paragraphDone } = buildAst();
+    const { root, paragraphOpen, listItem } = buildAst();
     const results = selectExtended(root as any, "@2", [root as any]);
     const values = results.map((n: any) => n.value ?? n.type);
-    assert.deepEqual(values.sort(), ["Heading", "Intro", "paragraph"].sort());
-    assert.ok(results.includes(paragraphDone));
+    assert.deepEqual(values.sort(), ["listItem", "paragraph"].sort());
+    assert.ok(results.includes(paragraphOpen));
+    assert.ok(results.includes(listItem));
+  });
+
+  it("navigates heading titles via child selectors", () => {
+    const { root } = buildAst();
+    const results = selectExtended(root as any, "heading > paragraph", [root as any]);
+    const types = results.map((n: any) => n.type).sort();
+    assert.deepEqual(types, ["paragraph", "paragraph"]);
   });
 });
 
@@ -65,7 +80,7 @@ describe("makeChain", () => {
     const chain = makeChain(astPromise as any, nodesPromise as any);
 
     const paragraphs = await chain.select("paragraph").toArray();
-    assert.equal(paragraphs.length, 2);
+    assert.equal(paragraphs.length, 3);
 
     const visited: string[] = [];
     const texts = await chain
@@ -74,7 +89,7 @@ describe("makeChain", () => {
       .toArray();
 
     assert.equal(texts.every((n: any) => n.type === "text"), true);
-    assert.deepEqual(visited.sort(), ["Intro", "Task"].sort());
+    assert.deepEqual(visited.sort(), ["Heading", "Intro", "Task"].sort());
 
     const filtered = await chain
       .select("paragraph")

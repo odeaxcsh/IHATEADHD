@@ -10,7 +10,9 @@ describe("InMemoryRegistry", () => {
   const createRenderer = (): ComponentRenderer => ({
     render: (node: MdNode, target: HTMLElement) => {
       target.dataset.rendered = node.type;
-      return target;
+    },
+    cleanup: (target: HTMLElement) => {
+      delete target.dataset.rendered;
     }
   });
 

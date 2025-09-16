@@ -18,12 +18,12 @@ function prefixBlockquote(value: string): string {
 
 const handleCallout: Handle = (node, _parent, context) => {
   const n = node as unknown as Callout
-  const marker = `[!${n.calloutType}]${n.expanded ?? ''}`
+  const suffix = n.expanded === 'open' ? '+' : n.expanded === 'closed' ? '-' : ''
+  const marker = `[!${n.calloutType}]${suffix}`
 
   let titleInline = ''
-  if (n.title?.length) {
-    // Wrap phrasing in a synthetic paragraph so containerPhrasing can serialize.
-    titleInline = context.containerPhrasing({type: 'paragraph', children: n.title}, {before: '', after: ''}).trim()
+  if (n.title?.children?.length) {
+    titleInline = context.containerPhrasing(n.title as any, {before: '', after: ''}).trim()
   }
 
   const firstLine = '> ' + marker + (titleInline ? ' ' + titleInline : '') + '\n'
