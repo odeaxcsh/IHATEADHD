@@ -1,0 +1,30 @@
+{
+  "name": "obsidian-ast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs && npm run copy:dist",
+    "copy:dist": "cpx manifest.json dist/ && cpx versions.json dist/ && cpx styles.css dist/ || exit 0",
+    "release": "npm run build && cd dist && zip -r ../obsidian-ast.zip .",
+    "clean": "rimraf dist main.js obsidian-ast.zip"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.1",
+    "cpx": "^1.5.0",
+    "esbuild": "^0.23.1",
+    "obsidian": "^1.8.7",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "mdast": "^2.3.2",
+    "parsimmon": "^1.18.1",
+    "remark-directive": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-select": "^5.1.0",
+    "unist-util-visit": "^5.0.0"
+  }
+}

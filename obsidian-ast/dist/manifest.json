@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-ast",
+  "name": "Markdown AST Provider",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Parses Markdown notes into an mdast tree, and exposes an API other plugins or DataviewJS can use.",
+  "author": "abolfazl",
+  "isDesktopOnly": false
+}
