@@ -18,7 +18,7 @@ class FakeComponent {
 
 describe("SvelteRenderer", () => {
   it("instantiates the Svelte component with merged props", () => {
-    const renderer = new SvelteRenderer(FakeComponent as any, { extra: true }, "after-anchor");
+    const renderer = new SvelteRenderer(FakeComponent as any, { extra: true }, "after-heading");
     const mountTarget = document.createElement("div");
     const node: MdNode = { type: "comment" };
 

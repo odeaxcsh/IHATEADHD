@@ -73,16 +73,9 @@ describe("placeMount", () => {
     return { parent, anchor };
   };
 
-  it("inserts host before the anchor when policy is before-anchor", () => {
+  it("inserts host after the anchor when policy is after-heading", () => {
     const { parent, anchor } = createAnchor();
-    const host = placeMount("before-anchor", anchor);
-    assert.equal(parent.children[0], host);
-    assert.equal(parent.children[1], anchor);
-  });
-
-  it("inserts host after the anchor when policy is after-anchor", () => {
-    const { parent, anchor } = createAnchor();
-    const host = placeMount("after-anchor", anchor);
+    const host = placeMount("after-heading", anchor);
     assert.equal(parent.children[0], anchor);
     assert.equal(parent.children[1], host);
   });

@@ -8,8 +8,8 @@
  * - render the first line with the marker and title inline.
  * - render children and prefix each line with "> ".
  */
-import type {ToMarkdownExtension, Handle} from 'mdast-util-to-markdown'
-import type {Callout} from './types.js'
+import type { ToMarkdownExtension, Handle } from 'mdast-util-to-markdown'
+import type { Callout } from './types.js'
 
 function prefixBlockquote(value: string): string {
   const lines = value.replace(/\r\n/g, '\n').split('\n')
@@ -18,12 +18,12 @@ function prefixBlockquote(value: string): string {
 
 const handleCallout: Handle = (node, _parent, context) => {
   const n = node as unknown as Callout
-  const marker = `[!${n.calloutType}]${n.expanded ?? ''}`
+  const expMark = n.expanded === 'open' ? '+' : n.expanded === 'closed' ? '-' : ''
+  const marker = `[!${n.calloutType}]${expMark}`
 
   let titleInline = ''
-  if (n.title?.length) {
-    // Wrap phrasing in a synthetic paragraph so containerPhrasing can serialize.
-    titleInline = context.containerPhrasing({type: 'paragraph', children: n.title}, {before: '', after: ''}).trim()
+  if (n.title?.children?.length) {
+    titleInline = context.containerPhrasing(n.title, { before: '', after: '' }).trim()
   }
 
   const firstLine = '> ' + marker + (titleInline ? ' ' + titleInline : '') + '\n'

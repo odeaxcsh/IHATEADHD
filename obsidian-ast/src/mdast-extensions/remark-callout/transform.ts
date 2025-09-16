@@ -8,16 +8,16 @@
  *
  * We replace the Blockquote with a `callout` node, extracting:
  * - calloutType (lowercased)
- * - expanded ('+' | '-' | undefined)
+ * - expanded ('open' | 'closed' | undefined)
  * - title (Paragraph) = the first paragraph with the marker removed
  * - children = remaining block content (blockquote children after the first line)
  */
 
-import {visit} from 'unist-util-visit'
-import type {Paragraph, Blockquote, Root, Text, BlockContent} from 'mdast'
-import type {Callout} from './types.js'
+import { visit } from 'unist-util-visit'
+import type { Paragraph, Blockquote, Root, Text, BlockContent } from 'mdast'
+import type { Callout } from './types.js'
 
-import { copyPos, unionPos } from '../helper';
+import { copyPos, unionPos } from '../helper'
 
 const RE = /^\s*\[\!([A-Za-z][A-Za-z0-9_-]*)\]\s*([+-])?\s*/ // [!type] +optional sign
 // ...same imports and RE as before...
@@ -39,7 +39,11 @@ export function transformCallouts() {
       if (!m) return
 
       const calloutType = m[1].toLowerCase()
-      const expanded = (m[2] as ('+' | '-') | undefined) || undefined
+      const expandedMark = (m[2] as ('+' | '-') | undefined) || undefined
+      const expanded =
+        expandedMark === '+' ? 'open'
+        : expandedMark === '-' ? 'closed'
+        : undefined
 
       // Remove the marker from the first text node
       ;(firstInline as Text).value = (firstInline as Text).value.slice(m[0].length)
@@ -51,21 +55,25 @@ export function transformCallouts() {
         if (!t.value) para.children.shift()
       }
 
-      const title = para.children.length ? para.children : undefined
+      const titleNode: Paragraph = {
+        type: 'paragraph',
+        children: para.children.slice(),
+      }
+      copyPos(titleNode, para)
 
       const content = node.children.slice(1) as BlockContent[]
 
-      var callout: Callout = {
+      const callout: Callout = {
         type: 'callout',
         calloutType,
         expanded,
-        title,
+        title: titleNode,
         children: content,
         position: node.position
       }
 
-      const lastChild = content.length ? content[content.length - 1] : undefined;
-      callout.position = unionPos(node.position, lastChild?.position);
+      const lastChild = content.length ? content[content.length - 1] : undefined
+      callout.position = unionPos(node.position, lastChild?.position)
 
       parent.children.splice(index, 1, callout)
       return [visit.SKIP, index]

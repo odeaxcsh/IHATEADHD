@@ -1,5 +1,6 @@
-import type {Root, Content, Heading, PhrasingContent, BlockContent, Position} from "mdast"
+import type { Root, Content, Heading, PhrasingContent, BlockContent, Position, Paragraph } from "mdast"
 import type {Plugin} from "unified"
+import { copyPos } from "../helper"
 
 /**
  * Sectionize headings:
@@ -13,7 +14,7 @@ export function transformNestedHeadings() {
     const root = tree as unknown as { children: Content[] }
     const out: Content[] = []
     type H = Heading & {
-      title?: PhrasingContent[]
+      title: Paragraph
       children: Array<BlockContent | H>
       _sectionized?: true
     }
@@ -29,10 +30,16 @@ export function transformNestedHeadings() {
 
     function openSection(h: Heading): H {
       // Create a new object so we don't mutate the original node in-place
+      const phrasing = Array.isArray(h.children)
+        ? (h.children as PhrasingContent[]).slice()
+        : []
+      const title: Paragraph = { type: "paragraph", children: phrasing }
+      copyPos(title, h)
+
       const sec: H = {
         ...h,
         type: "heading",
-        title: (h.children as PhrasingContent[]) ?? [],
+        title,
         children: [],
         _sectionized: true
       }
