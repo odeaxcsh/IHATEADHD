@@ -64,6 +64,8 @@ return "";
 }
 ```
 
+> **Tip:** Filter expressions understand a regex comparator. Use `[field~= /pattern/i]` for JavaScript-style regular expressions (flags supported). Regex literals require the `~=` operator, and invalid patterns surface clear errors to make debugging easier.
+
 ---
 
 ## Callout behavior (details)

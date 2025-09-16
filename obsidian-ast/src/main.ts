@@ -10,7 +10,7 @@ import {
 import { unified, type Processor } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import { visit } from "unist-util-visit";
+import { visit } from "./utils/visit";
 import type { Root as MdastRoot, Content as MdastNode } from "mdast";
 
 import { remarkMdTag } from "./mdast-extensions/remark-tag";

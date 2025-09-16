@@ -1,9 +1,7 @@
-import { visit } from "unist-util-visit";
-
 /** Collect every node inside scope (including scope) */
 export function runAllWithin(scope: any): any[] {
   const nodes: any[] = [];
-  visit(scope, (n: any) => { nodes.push(n); });
+  walk(scope, (n: any) => { nodes.push(n); });
   return nodes;
 }
 
@@ -27,7 +25,7 @@ export function uniqueById(arr: any[]): any[] {
 /** Weak parent map (root → null, others → parent) */
 export function buildParentMap(root: any): WeakMap<any, any | null> {
   const parents = new WeakMap<any, any | null>(); parents.set(root, null);
-  visit(root, (n: any, _i: number | null, p: any | null) => {
+  walk(root, (n: any, idx: number | null, p: any | null) => {
     if (n && !parents.has(n)) parents.set(n, p ?? null);
   });
   return parents;
@@ -46,4 +44,14 @@ export function minimizeRoots(nodes: any[], parents: WeakMap<any, any | null>): 
     keep.push(n);
   }
   return keep;
+}
+
+type Visitor = (node: any, index: number | null, parent: any | null) => void;
+
+function walk(node: any, visitor: Visitor, index: number | null = null, parent: any | null = null) {
+  visitor(node, index, parent);
+  const children = Array.isArray(node?.children) ? node.children : [];
+  for (let i = 0; i < children.length; i++) {
+    walk(children[i], visitor, i, node);
+  }
 }

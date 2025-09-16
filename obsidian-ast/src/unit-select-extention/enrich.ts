@@ -1,4 +1,4 @@
-import { visit } from "unist-util-visit";
+import { visit } from "../utils/visit";
 import type { Root as MdastRoot } from "mdast";
 
 /**

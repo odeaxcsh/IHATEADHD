@@ -13,7 +13,7 @@
  * - children = remaining block content (blockquote children after the first line)
  */
 
-import {visit} from 'unist-util-visit'
+import { visit } from "../../utils/visit";
 import type {Paragraph, Blockquote, Root, Text, BlockContent} from 'mdast'
 import type {Callout} from './types.js'
 

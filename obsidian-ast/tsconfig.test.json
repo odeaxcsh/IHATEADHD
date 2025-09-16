@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./build-tests",
+    "noEmit": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "declaration": false,
+    "sourceMap": false,
+    "types": [],
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "src/unit-select-extention/expand.ts",
+    "src/unit-select-extention/traverse.ts",
+    "src/unit-select-extention/lang/ast.ts",
+    "src/unit-select-extention/lang/evaluate.ts"
+  ],
+  "exclude": ["dist", "build-tests"]
+}

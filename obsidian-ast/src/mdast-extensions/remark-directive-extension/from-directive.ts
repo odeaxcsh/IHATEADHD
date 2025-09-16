@@ -1,5 +1,5 @@
 // src/mdast-extensions/remark-directive-extension/from-directive.ts
-import { visit } from "unist-util-visit";
+import { visit } from "../../utils/visit";
 import { parsePropValue } from "./props-grammar";
 import { buildComponentNode } from "./node-factory";
 import type { PropExpr } from "./types";

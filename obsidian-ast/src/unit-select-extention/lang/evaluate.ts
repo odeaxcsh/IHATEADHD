@@ -1,8 +1,9 @@
-import { selectAll } from "unist-util-select";
 import type {
   Query, Expr, UnionExpr, IntersectExpr, ChainExpr, PrimaryExpr, Segment,
-  CondExpr, CondOr, CondAnd, CondPrimary, CondAtom, CondCompare, CondSubquery, CondIn, Comparator, Op
+  CondExpr, CondOr, CondAnd, CondPrimary, CondAtom, CondCompare, CondSubquery, CondIn, Comparator, Op, RegexLit,
+  StringLit, NumberLit, IdentLit
 } from "./ast";
+import { SelectorError } from "./ast";
 import { expandFieldChain } from "../expand";
 import {
   runAllWithin, buildParentMap, minimizeRoots, uniqueById, orderByPos
@@ -144,8 +145,7 @@ function evalSegment(seg: Segment, scopes: any[], ctx: Ctx): any[] {
     } else if (seg.base === "*" || seg.base === ":root") {
       baseMatches = runAllWithin(scope);
     } else {
-      try { baseMatches = selectAll(seg.base, scope) as any[]; }
-      catch { baseMatches = []; }
+      baseMatches = selectByType(scope, seg.base);
     }
 
     // 2) field expansion (BEFORE filters)
@@ -155,12 +155,17 @@ function evalSegment(seg: Segment, scopes: any[], ctx: Ctx): any[] {
 
     // 3) filters on expanded nodes
     const filtered = seg.filters.length
-      ? expanded.filter(n => seg.filters.every(f => evalCond(f, n, ctx)))
+      ? expanded.filter((n: any) => seg.filters.every((f: CondExpr) => evalCond(f, n, ctx)))
       : expanded;
 
     out.push(...filtered);
   }
   return out;
+}
+
+function selectByType(scope: any, type: string): any[] {
+  if (!type) return [];
+  return runAllWithin(scope).filter((n: any) => n?.type === type);
 }
 
 /* ---------- conditions ---------- */
@@ -188,12 +193,23 @@ function evalCondAtom(node: CondAtom, n: any, ctx: Ctx): boolean {
     case "subq": return evalSubq(node, n, ctx);
     case "in": return evalIn(node, n, ctx);
   }
+  return false;
 }
 
 function evalCmp(c: CondCompare, n: any): boolean {
-  const lhsRaw = c.isField ? n?.fields?.[c.key.raw] : pickComparable(n, c.key.raw);
-  const rhs = literalToJs(c.value);
+  const lhsRaw = c.key.isField ? n?.fields?.[c.key.raw] : pickComparable(n, c.key.raw);
   const lhs = String(lhsRaw ?? "");
+
+  if (c.op === "~=") {
+    const regex = literalToRegExp(c.value);
+    return regex.test(lhs);
+  }
+
+  if (c.value.kind === "regex") {
+    throw new SelectorError("Regex literals require the '~=' comparator");
+  }
+
+  const rhs = literalToJs(c.value);
   const rhsS = String(rhs ?? "");
 
   // numeric ops
@@ -251,10 +267,22 @@ function evalIn(cond: CondIn, n: any, ctx: Ctx): boolean {
   if (!keyNodes.length) return false;
   const hits = evalExpr(cond.query, [n], ctx);
   const set = new Set(hits);
-  return keyNodes.some(k => set.has(k));
+  return keyNodes.some((k: any) => set.has(k));
 }
 
 /* ---------- simple helpers ---------- */
+
+function literalToRegExp(v: StringLit | NumberLit | IdentLit | RegexLit): RegExp {
+  const pattern = v.kind === "regex" ? v.pattern : String(v.kind === "num" ? v.value : v.value);
+  const flags = v.kind === "regex" ? v.flags : "";
+  try {
+    return new RegExp(pattern, flags);
+  } catch (e) {
+    const shown = v.kind === "regex" ? `/${pattern}/${flags}` : JSON.stringify(pattern);
+    const msg = (e as Error)?.message ?? String(e);
+    throw new SelectorError(`Invalid regular expression ${shown}: ${msg}`);
+  }
+}
 
 function pickComparable(n: any, key: string): any {
   if (key === "type") return n?.type;
